@@ -19,6 +19,7 @@ from tensorflow.python.framework import ops
 # Local imports
 import tf_data
 import utils as digits
+import optimizer as opt
 from utils import model_property
 
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
@@ -88,7 +89,10 @@ class Model(object):
         self.summaries = []
         self.towers = []
         self._train = None
+        self._accum = None
         self._reuse = reuse_variable
+
+        self.small_chunk = 4
 
         # Touch to initialize
         # if optimization:
@@ -185,19 +189,25 @@ class Model(object):
 
         # Assemble and average the gradients from all towers
         if self.stage == digits.STAGE_TRAIN:
+            grad_accum = []
             n_gpus = len(available_devices)
             if n_gpus == 1:
                 grad_averages = grad_towers[0]
+                grad_accum = grad_towers[0]
             else:
                 with tf.device(available_devices[0]):
                     n_losses = len(grad_towers[0])
                     grad_averages = []
                     for loss in xrange(n_losses):
-                        grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        for gpu in xrange(n_gpus):
+                            grad_accum.append(grad_towers[gpu][loss])
+                            tmp = average_gradients([grad_towers[gpu][loss]])
+                        grad_averages.append(tmp)
             apply_gradient_ops = []
             for grad_avg in grad_averages:
                 apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
             self._train = apply_gradient_ops
+            self._accum = grad_accum
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)
@@ -232,6 +242,10 @@ class Model(object):
         return self._train
 
     @model_property
+    def accum(self):
+        return self._accum
+
+    @model_property
     def summary(self):
         """
         Merge train summaries
@@ -260,8 +274,7 @@ class Model(object):
             self.summaries.append(tf.summary.scalar('lr', lr))
             return lr
 
-    @model_property
-    def optimizer(self):
+    def _optimizer(self):
         logging.info("Optimizer:%s", self._optimization)
         if self._optimization == 'sgd':
             return tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
@@ -285,6 +298,10 @@ class Model(object):
         else:
             logging.error("Invalid optimization flag %s", self._optimization)
             exit(-1)
+
+    @model_property
+    def optimizer(self):
+        return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
 
     def get_tower_losses(self, tower):
         """

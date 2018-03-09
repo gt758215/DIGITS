@@ -412,6 +412,10 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
+        ## for test
+        FLAGS.small_chunk = 4
+
+
         batch_size_train = FLAGS.batch_size
         batch_size_val = FLAGS.batch_size
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
@@ -623,6 +627,12 @@ def main(_):
                                                             options=run_options,
                                                             run_metadata=run_metadata)
                     else:
+                        for i in range(FLAGS.small_chunk-1):
+                            _, = sess.run([train_model.accum,
+                                           feed_dict=feed_dict,
+                                           options=run_options,
+                                           run_metadata=run_metadata)
+
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
                                                          train_model.global_step],
