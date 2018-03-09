@@ -628,7 +628,7 @@ def main(_):
                                                             run_metadata=run_metadata)
                     else:
                         for i in range(FLAGS.small_chunk-1):
-                            _, = sess.run([train_model.accum,
+                            _, = sess.run([train_model.accum],
                                            feed_dict=feed_dict,
                                            options=run_options,
                                            run_metadata=run_metadata)
