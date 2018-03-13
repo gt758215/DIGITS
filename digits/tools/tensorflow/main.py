@@ -412,9 +412,7 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
-        ## for test
-        FLAGS.small_chunk = 4
-
+        FLAGS.small_chunk = 2
 
         batch_size_train = FLAGS.batch_size
         batch_size_val = FLAGS.batch_size
@@ -487,6 +485,7 @@ def main(_):
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
+                train_model.small_chunk = FLAGS.small_chunk
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
@@ -521,12 +520,16 @@ def main(_):
         # Start running operations on the Graph. allow_soft_placement must be set to
         # True to build towers on GPU, as some of the ops do not have GPU
         # implementations.
-        sess = tf.Session(config=tf.ConfigProto(
+        config=tf.ConfigProto(
                           allow_soft_placement=True,  # will automatically do non-gpu supported ops on cpu
                           inter_op_parallelism_threads=TF_INTER_OP_THREADS,
                           intra_op_parallelism_threads=TF_INTRA_OP_THREADS,
-                          log_device_placement=FLAGS.log_device_placement))
-
+                          log_device_placement=FLAGS.log_device_placement
+                          #log_device_placement=True
+                          )
+        config.gpu_options.allow_growth = True
+        sess = tf.Session(config=config)
+        
         if FLAGS.visualizeModelPath:
             visualize_graph(sess.graph_def, FLAGS.visualizeModelPath)
             exit(0)
@@ -627,22 +630,19 @@ def main(_):
                                                             options=run_options,
                                                             run_metadata=run_metadata)
                     else:
-                        for i in range(FLAGS.small_chunk-1):
-                            _, = sess.run([train_model.accum],
-                                           feed_dict=feed_dict,
-                                           options=run_options,
-                                           run_metadata=run_metadata)
-
+                        for _ in xrange(FLAGS.small_chunk-2):
+                            sess.run([train_model.accum],
+                                                        feed_dict=feed_dict,
+                                                        options=run_options,
+                                                        run_metadata=run_metadata)
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
                                                          train_model.global_step],
                                                         feed_dict=feed_dict,
                                                         options=run_options,
                                                         run_metadata=run_metadata)
-
                     # HACK
                     step = step / len(train_model.train)
-
                     # logging.info(sess.run(queue_size_op)) # DEVELOPMENT: for checking the queue size
 
                     if log_runtime:
@@ -660,6 +660,7 @@ def main(_):
                     current_epoch = round((step * batch_size_train) / train_model.dataloader.get_total(), epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
+                    #if True:
                         steps_since_log = step - step_last_log
                         print_list = print_summarylist(tags, print_vals_sum/steps_since_log)
                         logging.info("Training (epoch " + str(current_epoch) + "): " + print_list)

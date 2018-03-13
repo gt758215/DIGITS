@@ -19,8 +19,8 @@ from tensorflow.python.framework import ops
 # Local imports
 import tf_data
 import utils as digits
-import optimizer as opt
 from utils import model_property
+import optimizer as opt
 
 logging.basicConfig(format='%(asctime)s [%(levelname)s] %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',
@@ -89,10 +89,9 @@ class Model(object):
         self.summaries = []
         self.towers = []
         self._train = None
-        self._accum = None
         self._reuse = reuse_variable
-
-        self.small_chunk = 4
+        self._accum = None
+        self.small_chunk = 1
 
         # Touch to initialize
         # if optimization:
@@ -170,6 +169,7 @@ class Model(object):
                         with tf.name_scope(digits.GraphKeys.LOSS):
                             for loss in self.get_tower_losses(tower_model):
                                 tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
+                                #tf.add_to_collection(digits.GraphKeys.LOSSES, loss)
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
@@ -183,6 +183,7 @@ class Model(object):
                             grad_tower_losses = []
                             for loss in self.get_tower_losses(tower_model):
                                 grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
+                                #grad_tower_loss = self.optimizer.compute_gradients(loss)
                                 grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
                                 grad_tower_losses.append(grad_tower_loss)
                             grad_towers.append(grad_tower_losses)
@@ -200,14 +201,16 @@ class Model(object):
                     grad_averages = []
                     for loss in xrange(n_losses):
                         for gpu in xrange(n_gpus):
-                            grad_accum.append(grad_towers[gpu][loss])
-                            tmp = average_gradients([grad_towers[gpu][loss]])
-                        grad_averages.append(tmp)
+                            for g, _ in grad_towers[gpu][loss]:
+                                grad_accum.append(g)
+                            if(gpu == 0):
+                                print(grad_accum)
+                        grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
             apply_gradient_ops = []
             for grad_avg in grad_averages:
                 apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
             self._train = apply_gradient_ops
-            self._accum = grad_accum
+            self._accum = tf.group(*grad_accum)
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)
@@ -239,6 +242,12 @@ class Model(object):
 
     @model_property
     def train(self):
+        #if(self.small_chunk > 1):
+        #    tmp = [self._accum] * (self.small_chunk-1)
+        #    tmp.append(self._train)
+        #    return tmp
+            #return [self._accum, self._train]
+        #else:
         return self._train
 
     @model_property
@@ -301,6 +310,10 @@ class Model(object):
 
     @model_property
     def optimizer(self):
+        #if(self.small_chunk == 1):
+        #    return self._optimizer()
+        #else:
+        #    return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
         return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
 
     def get_tower_losses(self, tower):
@@ -315,6 +328,7 @@ class Model(object):
             return tower.loss
         else:
             return [{'loss': tower.loss, 'vars': tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)}]
+            #return [tower.loss]
 
 
 class Tower(object):
