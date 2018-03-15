@@ -245,6 +245,10 @@ class Model(object):
         return self._train
 
     @model_property
+    def accum(self):
+        return self._accum
+
+    @model_property
     def summary(self):
         """
         Merge train summaries
