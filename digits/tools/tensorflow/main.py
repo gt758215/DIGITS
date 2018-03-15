@@ -142,7 +142,8 @@ tf.app.flags.DEFINE_float(
     'augHSVs', 0., """The stddev of HSV's Saturation shift as pre-processing  augmentation""")
 tf.app.flags.DEFINE_float(
     'augHSVv', 0., """The stddev of HSV's Value shift as pre-processing augmentation""")
-
+tf.app.flags.DEFINE_integer(
+    'small_chunk', 4, """ TBC""")
 
 def save_timeline_trace(run_metadata, save_dir, step):
     tl = timeline.Timeline(run_metadata.step_stats)
@@ -483,6 +484,7 @@ def main(_):
         if FLAGS.train_db:
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
+                train_model.small_chunk = FLAGS.small_chunk
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
@@ -623,6 +625,14 @@ def main(_):
                                                             options=run_options,
                                                             run_metadata=run_metadata)
                     else:
+                        # to do accumulations
+                        if(FLAGS.small_chunk > 1):
+                            for i in xrange(FLAGS.small_chunk-2):
+                                sess.run([train_model.accum],
+                                          feed_dict=feed_dict,
+                                          options=run_options,
+                                          run_metadata=run_metadata)
+
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
                                                          train_model.global_step],
