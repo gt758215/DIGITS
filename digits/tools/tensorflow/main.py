@@ -488,6 +488,7 @@ def main(_):
         # @TODO(tzaman) - add mode checks to UserModel
 
         # A bug ref. to https://github.com/tensorflow/tensorflow/issues/9374
+        #               https://github.com/tensorflow/tensorflow/issues/16753
         # The config must pass into session ahead of the device_lib.list_local_devices() function call
         # in train_model.create_model
 
