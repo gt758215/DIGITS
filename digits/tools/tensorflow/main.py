@@ -503,8 +503,9 @@ def main(_):
 
         if FLAGS.allow_growth:
             sess_config.gpu_options.allow_growth = True
-        else:
-            sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
+        else: 
+            if FLAGS.gpu_mem_ratio < 1: 
+                sess_config.gpu_options.per_process_gpu_memory_fraction = FLAGS.gpu_mem_ratio
 
         sess = tf.Session(config=sess_config)
 
