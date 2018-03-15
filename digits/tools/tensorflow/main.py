@@ -487,6 +487,9 @@ def main(_):
             exit(-1)
         # @TODO(tzaman) - add mode checks to UserModel
 
+        # A bug ref. to https://github.com/tensorflow/tensorflow/issues/9374
+        # The config must pass into session ahead of the device_lib.list_local_devices() function call
+        # in train_model.create_model
 
         # Start running operations on the Graph. allow_soft_placement must be set to
         # True to build towers on GPU, as some of the ops do not have GPU
