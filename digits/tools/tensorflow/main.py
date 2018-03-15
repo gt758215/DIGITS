@@ -490,7 +490,7 @@ def main(_):
                                              FLAGS.shuffle,
                                              FLAGS.bitdepth,
                                              batch_size_train,
-                                             FLAGS.epoch,
+                                             FLAGS.epoch*FLAGS.small_chunk,
                                              FLAGS.seed)
                 train_model.dataloader.set_augmentation(mean_loader, aug_dict)
                 train_model.create_model(UserModel, stage_scope)  # noqa
