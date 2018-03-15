@@ -196,19 +196,21 @@ class Model(object):
             if n_gpus == 1:
                 for loss in xrange(n_losses):
                     grad_averages.append(grad_towers[0][loss])
-                    grad_accum.append(grad_towers[0][loss])
+                    for g, _ in grad_towers[0][loss]:
+                        grad_accum.append(g)
             else:
                 with tf.device(available_devices[0]):
                     n_losses = len(grad_towers[0])
                     for loss in xrange(n_losses):
                         grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
                         for gpu in xrange(n_gpus):
-                            grad_accum.append(grad_towers[gpu][loss])
+                            for g, _ in grad_towers[gpu][loss]:
+                                grad_accum.append(g)
             apply_gradient_ops = []
             for grad_avg in grad_averages:
                 apply_gradient_ops.append(self.optimizer.apply_gradients(grad_avg, global_step=self.global_step))
             self._train = apply_gradient_ops
-            self._accum = grad_accum
+            self._accum = tf.group(*grad_accum)
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)
@@ -271,8 +273,7 @@ class Model(object):
             self.summaries.append(tf.summary.scalar('lr', lr))
             return lr
 
-    @model_property
-    def optimizer(self):
+    def _optimizer(self):
         logging.info("Optimizer:%s", self._optimization)
         if self._optimization == 'sgd':
             return tf.train.GradientDescentOptimizer(learning_rate=self.learning_rate)
@@ -296,6 +297,13 @@ class Model(object):
         else:
             logging.error("Invalid optimization flag %s", self._optimization)
             exit(-1)
+
+    @model_property
+    def optimizer(self):
+        if(self.small_chunk <= 1):
+            return self._optimizer()
+        else:
+            return opt.AccumGradOptimizerAlt(self._optimizer(), self.small_chunk)
 
     def get_tower_losses(self, tower):
         """

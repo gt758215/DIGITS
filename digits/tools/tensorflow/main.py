@@ -627,11 +627,11 @@ def main(_):
                     else:
                         # to do accumulations
                         if(FLAGS.small_chunk > 1):
-                            for i in xrange(FLAGS.small_chunk-2):
+                            for i in xrange(FLAGS.small_chunk-1):
                                 sess.run([train_model.accum],
-                                          feed_dict=feed_dict,
-                                          options=run_options,
-                                          run_metadata=run_metadata)
+                                         feed_dict=feed_dict,
+                                         options=run_options,
+                                         run_metadata=run_metadata)
 
                         _, summary_str, step = sess.run([train_model.train,
                                                          train_model.summary,
