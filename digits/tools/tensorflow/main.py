@@ -519,7 +519,7 @@ def main(_):
             with tf.name_scope(digits.STAGE_TRAIN) as stage_scope:
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
                 train_model.small_chunk = FLAGS.small_chunk
-                train_model.nccl = FLAGS.ncll
+                train_model.nccl = FLAGS.nccl
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
