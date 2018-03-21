@@ -84,21 +84,25 @@ class AccumGradOptimizerAlt(ProxyOptimizer):
         
 
 
-        # Counter variable 
+        
         accum_times = self._niter
-        #with tf.variable_scope(self._name, reuse=tf.AUTO_REUSE):
-            #counter = tf.get_variable(initializer=tf.constant_initializer(0), name="counter", shape=[], trainable=False, dtype=tf.int32)
-        counter = tf.Variable(0, name="counter", trainable=False, dtype=tf.int32)
+
+        # Counter variable 
+        with tf.control_dependencies(None):
+            counter = tf.Variable(0, name="counter", trainable=False, dtype=tf.int32)
 
         # Get gradients and weights from original Optimizer
         grads_and_vars = self._opt.compute_gradients(*args, **kwargs)
+
+        # drop None grads
         grads_and_vars = [(g, v) for g, v in grads_and_vars if g != None]
         #print grads_and_vars
 
         trainable_var =  [v for _, v in grads_and_vars]
         # Create slots for storing accumulated gradients
-        with tf.variable_scope(self._name, reuse = tf.AUTO_REUSE):
-            accum_grads = [self._zeros_slot(v, "accum_grad", self._name) for v in  trainable_var]
+        with tf.control_dependencies(None):
+            with tf.variable_scope(self._name, reuse = tf.AUTO_REUSE):
+                accum_grads = [self._zeros_slot(v, "accum_grad", self._name) for v in  trainable_var]
 
         # ==================================
         # Update counter lambda
