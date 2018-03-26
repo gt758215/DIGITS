@@ -298,8 +298,8 @@ class Model(object):
 
                         with tf.name_scope(digits.GraphKeys.LOSS):
                             for loss in self.get_tower_losses(tower_model):
-                                #tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
-                                tf.add_to_collection(digits.GraphKeys.LOSSES, loss)
+                                tf.add_to_collection(digits.GraphKeys.LOSSES, loss['loss'])
+                                #tf.add_to_collection(digits.GraphKeys.LOSSES, loss)
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
@@ -312,8 +312,8 @@ class Model(object):
                         if self.stage == digits.STAGE_TRAIN:
                             grad_tower_losses = []
                             for loss in self.get_tower_losses(tower_model):
-                                #grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
-                                grad_tower_loss = self.optimizer.compute_gradients(loss)
+                                grad_tower_loss = self.optimizer.compute_gradients(loss['loss'], loss['vars'])
+                                #grad_tower_loss = self.optimizer.compute_gradients(loss)
                                 grad_tower_loss = tower_model.gradientUpdate(grad_tower_loss)
                                 grad_tower_losses.append(grad_tower_loss)
                             grad_towers.append(grad_tower_losses)
@@ -466,8 +466,8 @@ class Model(object):
         if isinstance(tower.loss, list):
             return tower.loss
         else:
-            #return [{'loss': tower.loss, 'vars': tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)}]
-            return [tower.loss]
+            return [{'loss': tower.loss, 'vars': tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)}]
+            #return [tower.loss]
 
 
 class Tower(object):
