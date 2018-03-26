@@ -142,10 +142,11 @@ tf.app.flags.DEFINE_float(
     'augHSVs', 0., """The stddev of HSV's Saturation shift as pre-processing  augmentation""")
 tf.app.flags.DEFINE_float(
     'augHSVv', 0., """The stddev of HSV's Value shift as pre-processing augmentation""")
+
 tf.app.flags.DEFINE_integer(
     'small_chunk', 4, """ TBC""")
 tf.app.flags.DEFINE_bool(
-    'allow_growth', False, """gpu memory saving.""")
+    'allow_growth', True, """gpu memory saving.""")
 tf.app.flags.DEFINE_float(
     'gpu_mem_ratio', 1.0, """if allow_growth is false, occupy a ratio of gpu memory in the beginning""")
 tf.app.flags.DEFINE_bool(
@@ -424,9 +425,7 @@ def main(_):
         batch_size_train = FLAGS.batch_size
         batch_size_val = FLAGS.batch_size
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
-        logging.info("small_chunk is %s", FLAGS.small_chunk)
-        logging.info("nccl is %s", FLAGS.nccl)
-        logging.info("saving memory is %s", FLAGS.allow_growth)
+
         # This variable keeps track of next epoch, when to perform validation.
         next_validation = FLAGS.validation_interval
         logging.info("Training epochs to be completed for each validation : %s", next_validation)
@@ -628,6 +627,8 @@ def main(_):
             # Training
             logging.info('Started training the model')
 
+            sess.run([train_model.init])
+
             current_epoch = 0
             try:
                 step = 0
@@ -716,9 +717,6 @@ def main(_):
                             FLAGS.snapshotInterval
                         last_snapshot_save_epoch = current_epoch
                     writer.flush()
-
-                    if current_epoch >= FLAGS.epoch
-                        break
 
             except tf.errors.OutOfRangeError:
                 logging.info('Done training for epochs: tf.errors.OutOfRangeError')
