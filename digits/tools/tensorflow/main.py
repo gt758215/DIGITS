@@ -150,8 +150,9 @@ tf.app.flags.DEFINE_bool(
 tf.app.flags.DEFINE_float(
     'gpu_mem_ratio', 1.0, """if allow_growth is false, occupy a ratio of gpu memory in the beginning""")
 tf.app.flags.DEFINE_bool(
-    'nccl', False, """nccl allreduce.""")
-
+    'nccl', True, """nccl allreduce.""")
+tf.app.flags.DEFINE_bool(
+    'replica', True, """replica variables on gpus.""")
 
 
 def save_timeline_trace(run_metadata, save_dir, step):
@@ -521,6 +522,7 @@ def main(_):
                 train_model = Model(digits.STAGE_TRAIN, FLAGS.croplen, nclasses, FLAGS.optimization, FLAGS.momentum)
                 train_model.small_chunk = FLAGS.small_chunk
                 train_model.nccl = FLAGS.nccl
+                train_model.replica = FLAGS.replica
                 train_model.create_dataloader(FLAGS.train_db)
                 train_model.dataloader.setup(FLAGS.train_labels,
                                              FLAGS.shuffle,
@@ -718,6 +720,9 @@ def main(_):
                         last_snapshot_save_epoch = current_epoch
                     writer.flush()
 
+#                    if current_epoch >= FLAGS.epoch:
+#                        break
+
             except tf.errors.OutOfRangeError:
                 logging.info('Done training for epochs: tf.errors.OutOfRangeError')
             except ValueError as err:
@@ -741,6 +746,7 @@ def main(_):
             if FLAGS.labels_list:
                 output_tensor = train_model.towers[0].inference
                 out_name, _ = output_tensor.name.split(':')
+        #        out_name = []
 
         if FLAGS.train_db:
             del train_model
@@ -771,6 +777,7 @@ def main(_):
                 filename_tensor_name="save/Const:0",
                 output_graph=path_frozen,
                 clear_devices=True,
+                #clear_devices=False,
                 initializer_nodes="",
             )
 

@@ -181,6 +181,7 @@ class Model(object):
         self._init = None
         self.small_chunk = 1
         self.nccl = False
+        self.replica = False
 
         # Touch to initialize
         # if optimization:
@@ -198,7 +199,7 @@ class Model(object):
         #var_by_name = dict([(v.name, v) for v in all_vars])
         var_by_name = dict()
         for v in all_vars:
-            if v.name.startswith('tower_0'):
+            if v.name.startswith('model'):
                 split_name = v.name.split('/')
                 realname = '/'.join(split_name[1:])
                 var_by_name[realname] = v
@@ -207,7 +208,7 @@ class Model(object):
         for v in all_vars:
             if not v.name.startswith('tower'):
                 continue
-            if v.name.startswith('tower_0'):
+            if v.name.startswith('model'):
                 continue
             # in this trainer, the master name doesn't have the towerx/ prefix
             split_name = v.name.split('/')
@@ -274,8 +275,8 @@ class Model(object):
             with tf.device(dev_name):
                 current_scope = stage_scope if len(available_devices) == 1 else ('tower_%d' % dev_i)
                 #with tf.name_scope(current_scope) as scope_tower:
-                with tf.variable_scope(current_scope, reuse=False or self._reuse):
-                
+                #with tf.variable_scope(('tower_%d' % dev_i), reuse=False or self._reuse):
+                with tf.name_scope(('tower_%d' % dev_i)) as scope_tower:
                     if self.stage != digits.STAGE_INF:
                         tower_model = self.add_tower(obj_tower=obj_UserModel,
                                                      x=batch_x_split[dev_i],
@@ -285,8 +286,11 @@ class Model(object):
                                                      x=batch_x_split[dev_i],
                                                      y=None)
 
+                    tower_name = 'model' if self.replica == False or dev_i == 0 else ('tower_%d' % dev_i)
+                    var_reuse = False if self.replica else dev_i > 0
+                    with tf.variable_scope(tower_name, reuse=var_reuse or self._reuse):
                     #with tf.variable_scope(digits.GraphKeys.MODEL, reuse=dev_i > 0 or self._reuse):
-                    if True:
+                    #with tf.variable_scope(tower_name, reuse=False or self._reuse):
                         tower_model.inference  # touch to initialize
 
                         # Reuse the variables in this scope for the next tower/device
@@ -303,7 +307,8 @@ class Model(object):
 
                             # Assemble all made within this scope so far. The user can add custom
                             # losses to the digits.GraphKeys.LOSSES collection
-                            losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=tf.contrib.framework.get_name_scope())
+                            losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=scope_tower)
+                            #losses = tf.get_collection(digits.GraphKeys.LOSSES, scope=tf.contrib.framework.get_name_scope())
                             losses += ops.get_collection(ops.GraphKeys.REGULARIZATION_LOSSES, scope=None)
                             tower_loss = tf.add_n(losses, name='loss')
 
@@ -327,31 +332,48 @@ class Model(object):
             if n_gpus == 1:
                 n_losses = len(grad_towers[0])
                 for loss in xrange(n_losses):
-                    grad_averages.append(grad_towers[0][loss])
+                    if(self.replica):
+                        grad_averages.append([grad_towers[0][loss]])
+                    else:
+                        grad_averages.append(grad_towers[0][loss])
                     for g, _ in grad_towers[0][loss]:
                         grad_accum.append(g)
             else:
                 n_losses = len(grad_towers[0])
                 for loss in xrange(n_losses):
                     if not self.nccl:
-                        grad_averages.append(average_grads([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        if(self.replica):
+                            grad_averages.append(average_grads([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        else:
+                            grad_averages.append(average_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
                     else:
-                        grad_averages.append(allreduce_gradients_bak([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        if(self.replica):
+                            grad_averages.append(allreduce_gradients_bak([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+                        else:
+                            grad_averages.append(allreduce_gradients([grad_towers[gpu][loss] for gpu in xrange(n_gpus)]))
+
                     for gpu in xrange(n_gpus):
                         for g, _ in grad_towers[gpu][loss]:
                             grad_accum.append(g)
 
             apply_gradient_ops = []
             for grad_avg in grad_averages:
-                tmp = []
-                for grad_and_vars in grad_avg:
-                    for (g, v) in grad_and_vars:
-                        tmp.append((g, v))
+                if(self.replica):
+                    tmp = []
+                    for grad_and_vars in grad_avg:
+                        for (g, v) in grad_and_vars:
+                            tmp.append((g, v))
+                else:
+                    tmp = grad_avg
+
                 apply_gradient_ops.append(self.optimizer.apply_gradients(tmp, global_step=self.global_step))
 
             self._train = apply_gradient_ops
             self._accum = tf.group(*grad_accum)
-            self._init = self.get_post_init_ops()
+            if(self.replica):
+                self._init = self.get_post_init_ops()
+            else:
+                self._init = []
 
     def start_queue_runners(self, sess):
         logging.info('Starting queue runners (%s)', self.stage)
@@ -484,3 +506,4 @@ class Tower(object):
 
     def gradientUpdate(self, grad):
         return grad
+
