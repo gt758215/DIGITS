@@ -132,5 +132,5 @@ class AccumGradOptimizerAlt(ProxyOptimizer):
         # Thus, tuple those accum_grads with trainable_var
         # It will compose of a list of all tuple(accum_grad, var)
         with tf.control_dependencies([cond_clear_grads]):
-            return list(zip([tf.assign_add(s, tf.divide(g, accum_times)) for s, (g, _) in zip(accum_grads, grads_and_vars)], trainable_var))
+            return list(zip([tf.assign_add(s, tf.multiply(g, 1.0/accum_times)) for s, (g, _) in zip(accum_grads, grads_and_vars)], trainable_var))
 
