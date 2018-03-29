@@ -720,8 +720,9 @@ def main(_):
                         last_snapshot_save_epoch = current_epoch
                     writer.flush()
 
-#                    if current_epoch >= FLAGS.epoch:
-#                        break
+
+                    if current_epoch >= FLAGS.epoch:
+                        break
 
             except tf.errors.OutOfRangeError:
                 logging.info('Done training for epochs: tf.errors.OutOfRangeError')
