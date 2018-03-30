@@ -423,8 +423,11 @@ def main(_):
         if FLAGS.seed:
             tf.set_random_seed(FLAGS.seed)
 
-        batch_size_train = FLAGS.batch_size
-        batch_size_val = FLAGS.batch_size
+        assert FLAGS.batch_size % FLAGS.small_chunk == 0, (FLAGS.batch_size, FLAGS.small_chunk)
+        batch_size_train = FLAGS.batch_size//FLAGS.small_chunk
+        batch_size_val = FLAGS.batch_size//FLAGS.small_chunk
+        batch_size_inf = FLAGS.batch_size//FLAGS.small_chunk
+
         logging.info("Train batch size is %s and validation batch size is %s", batch_size_train, batch_size_val)
 
         # This variable keeps track of next epoch, when to perform validation.
@@ -551,7 +554,7 @@ def main(_):
             with tf.name_scope(digits.STAGE_INF) as stage_scope:
                 inf_model = Model(digits.STAGE_INF, FLAGS.croplen, nclasses)
                 inf_model.create_dataloader(FLAGS.inference_db)
-                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, FLAGS.batch_size, 1, FLAGS.seed)
+                inf_model.dataloader.setup(None, False, FLAGS.bitdepth, batch_size_inf, 1, FLAGS.seed)
                 inf_model.dataloader.set_augmentation(mean_loader)
                 inf_model.create_model(UserModel, stage_scope)  # noqa
 
