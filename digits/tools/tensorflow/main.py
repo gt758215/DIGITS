@@ -605,7 +605,7 @@ def main(_):
             if math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH) < math.ceil(5000/virtual_batch_size):
                 logging_interval_step = int(math.ceil(train_steps_per_epoch/MIN_LOGS_PER_TRAIN_EPOCH))
             else:
-                logging_interval_step = int(math.ceil(5000/batch_size_train))
+                logging_interval_step = int(math.ceil(5000/virtual_batch_size))
             logging.info("During training. details will be logged after every %s steps (batches)",
                          logging_interval_step)
 
@@ -613,7 +613,7 @@ def main(_):
             # it needs to be rounded to the required number of significant digits.
             epoch_round = 0  # holds the required number of significant digits for round function.
             tmp_batchsize = virtual_batch_size*logging_interval_step
-            while tmp_batchsize <= train_model.dataloader.get_total():
+            while tmp_batchsize <= train_data_total:
                 tmp_batchsize = tmp_batchsize * 10
                 epoch_round += 1
             logging.info("While logging, epoch value will be rounded to %s significant digits", epoch_round)
@@ -690,7 +690,7 @@ def main(_):
                     print_vals_sum = print_vals + print_vals_sum
 
                     # @TODO(tzaman): account for variable batch_size value on very last epoch
-                    current_epoch = round((step * virtual_batch_size) / train_model.dataloader.get_total(), epoch_round)
+                    current_epoch = round((step * virtual_batch_size) / train_data_total, epoch_round)
                     # Start with a forward pass
                     if ((step % logging_interval_step) == 0):
                         steps_since_log = step - step_last_log
