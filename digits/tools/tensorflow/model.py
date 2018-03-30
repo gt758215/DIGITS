@@ -320,9 +320,7 @@ class Model(object):
                 if self.replica :
                     r_loss_global[:] = []
                     if self.stage != digits.STAGE_TRAIN:
-                        for loss in r_loss_val_bak:
-                            if loss.name.startswith('train/tower_%d' % dev_i):
-                                r_loss_global.append(loss)
+                        r_loss_global = [loss for loss in r_loss_val_bak if loss.name.startswith('train/tower_%d' % dev_i)]
 
                 with tf.name_scope('tower_%d' % dev_i) as scope_tower:
                     if self.stage != digits.STAGE_INF:
@@ -334,7 +332,8 @@ class Model(object):
                                                      x=batch_x_split[dev_i],
                                                      y=None)
 
-                    with tf.variable_scope('tower_%d' % dev_i, reuse= False if self.replica else dev_i > 0 or self._reuse):
+                    with tf.variable_scope('tower_0' if not self.replica else 'tower_%d' % dev_i, 
+                                            reuse=(False if self.replica else dev_i > 0 ) or self._reuse):
                         tower_model.inference  # touch to initialize
 
                         # Reuse the variables in this scope for the next tower/device
@@ -539,9 +538,11 @@ class Model(object):
         else:
             tower_vars = []
             trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-            for var in trainable_vars:
-                if(var.name.startswith('tower_%d' % device)):
-                    tower_vars.append(var)
+            if self.replica:
+                tower_vars = [var for var in trainable_vars if(var.name.startswith('tower_%d' % device))]
+            else:
+                tower_vars = trainable_vars
+
             return [{'loss': tower.loss, 'vars': tower_vars}]
 
 class Tower(object):
