@@ -21,6 +21,7 @@ import math
 import numpy as np
 import os
 import tensorflow as tf
+import multiprocessing
 
 # Local imports
 import caffe_tf_pb2
@@ -29,7 +30,7 @@ import utils as digits
 # Constants
 MIN_FRACTION_OF_EXAMPLES_IN_QUEUE = 0.4
 MAX_ABSOLUTE_EXAMPLES_IN_QUEUE = 4096  # The queue size cannot exceed this number
-NUM_THREADS_DATA_LOADER = 6
+NUM_THREADS_DATA_LOADER = 10
 LOG_MEAN_FILE = False  # Logs the mean file as loaded in TF to TB
 
 # Supported extensions for Loaders
@@ -387,11 +388,12 @@ class LoaderFactory(object):
         if single_label is not None:
             single_batch.append(single_label)
 
+        batch_cpu = min(NUM_THREADS_DATA_LOADER, multiprocessing.cpu_count())
         if self.backend == 'tfrecords' and self.shuffle:
             batch = tf.train.shuffle_batch(
                 single_batch,
                 batch_size=self.batch_size,
-                num_threads=NUM_THREADS_DATA_LOADER,
+                num_threads=batch_cpu,
                 capacity=10*self.batch_size,  # Max amount that will be loaded and queued
                 shapes=[[0], self.get_shape(), []],  # Only makes sense is dynamic_pad=False #@TODO(tzaman) - FIXME
                 min_after_dequeue=5*self.batch_size,
@@ -404,7 +406,7 @@ class LoaderFactory(object):
                 dynamic_pad=True,  # Allows us to not supply fixed shape a priori
                 enqueue_many=False,  # Each tensor is a single example
                 # set number of threads to 1 for tfrecords (used for inference)
-                num_threads=NUM_THREADS_DATA_LOADER if not self.is_inference else 1,
+                num_threads=batch_cpu if not self.is_inference else 1,
                 capacity=max_queue_capacity,  # Max amount that will be loaded and queued
                 allow_smaller_final_batch=True,  # Happens if total%batch_size!=0
                 name='batcher')
