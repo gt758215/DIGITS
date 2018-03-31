@@ -12,7 +12,7 @@ class UserModel(Tower):
     def inference(self):
 
         x = tf.reshape(self.x, shape=[-1, self.input_shape[0], self.input_shape[1], self.input_shape[2]])
-        with slim.arg_scope(resnet_v1.resnet_arg_scope(is_training=self.is_training)):
+        with slim.arg_scope(resnet_v1.resnet_arg_scope()):
             logits, end_points = resnet_v1.resnet_v1_50(x, num_classes=self.nclasses, is_training=(not self.is_inference)
             #    , spatial_squeeze=True
                 , global_pool=True
