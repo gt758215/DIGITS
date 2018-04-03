@@ -359,13 +359,13 @@ class Model(object):
 
                             self.summaries.append(tf.summary.scalar(tower_loss.op.name, tower_loss))
 
-                        # for batch_norm layer, we must update those moving averages before compute gradients
-                        update_ops = tf.get_collection_ref(tf.GraphKeys.UPDATE_OPS)
-                        #for op in update_ops:
-                        #    print(op)
-
-                        with tf.control_dependencies(update_ops):
-                            if self.stage == digits.STAGE_TRAIN:
+                        
+                        if self.stage == digits.STAGE_TRAIN:
+                            # for batch_norm layer, we must update those moving averages before compute gradients
+                            update_ops = tf.get_collection_ref(tf.GraphKeys.UPDATE_OPS)
+                            #for op in update_ops:
+                            #    print(op)
+                            with tf.control_dependencies(update_ops):
                                 grad_tower_losses = []
                                 for loss in self.get_tower_losses(tower_model, dev_i):
                                     # use loss + regularization loss instead of loss only
@@ -374,7 +374,7 @@ class Model(object):
                                     grad_tower_losses.append(grad_tower_loss)
                                 grad_towers.append(grad_tower_losses)
 
-                        update_ops[:] = []
+                            update_ops[:] = []
 
         # Assemble and average the gradients from all towers
         if self.stage == digits.STAGE_TRAIN:
