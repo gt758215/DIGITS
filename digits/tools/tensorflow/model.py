@@ -418,6 +418,14 @@ class Model(object):
 
             self._train = apply_gradient_ops
             self._accum = tf.group(*grad_accum)
+
+            # for batch_norm layer, we must update those moving averages before compute gradients
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            if len(update_ops) != 0: 
+                with tf.control_dependencies(update_ops):
+                    self._train = tf.identity(self._train)
+                    self._accum = tf.identity(self._accum)
+
             if(self.replica):
                 self._init = self.get_post_init_ops()
             else:
